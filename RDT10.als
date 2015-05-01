@@ -21,17 +21,31 @@ abstract sig NetState {
 
 pred NetState.Init[] {
 	all d: Data | d in this.senderBuffer
-	no d: Data | d in this.receiverBuffer
+	no d:Data | d in this.receiverBuffer
 }
 
-run Init for exactly 2 NetState, exactly 10 Data, exactly 10 Packet
+run Init for exactly 1 NetState, exactly 10 Data, 10 Packet
 
-//fun NetState.make_pkt[d: Data]: Packet {
-	
-//}
 
-pred NetState.send[d: Data, s: NetState] {
-	
+fun NetState.make_pkt[d: Data]: Packet {
+	{p:Packet | one Global.dToP[d] implies d->p in Global.dToP }
+}
+
+pred NetState.send[d: Date, s: NetState] {
+	this.next = s	
+	this.packet = this.make_pkt[d]
+	not d in this.senderBuffer
+}
+
+pred NetState.receive[p: Packet, s: NetState] {
+	s.next = this
+	this.packet = p
+	Global.dToP.p in this.receiverBuffer
+}
+
+pred NetState.toSend[d: Data, s: NetState] {
+	this.send[d, s]
+	s.receive[this.packet, this]
 }
 
 pred Transition[s, s': NetState] {
@@ -47,12 +61,15 @@ pred Progress[s, s': NetState] {
 }
 
 pred NetState.End[] {
-
+	all d: Data | d in this.receiverBuffer
+	no d:Data | d in this.senderBuffer
 }
+run End for exactly 1 NetState, exactly 10 Data, 10 Packet
 
 pred Trace[] {
 	first.Init
-	all s: NetState - last | let s' = s.next | (Transition[s,s'] and s.End[]) or (Progress[s, s'])
+	all s: NetState - last | let s' = s.next | 
+		(Transition[s,s'] and s.End[]) or (Progress[s, s'])
 }
 
 run Trace
