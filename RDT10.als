@@ -26,36 +26,37 @@ pred NetState.Init[] {
 
 run Init for exactly 1 NetState, exactly 10 Data, 10 Packet
 
+fact DataInOnlyOneBuffer{
+	all s: NetState | no d: Data | d in s.senderBuffer and d in s.receiverBuffer
+}
 
 fun NetState.make_pkt[d: Data]: Packet {
-	{p:Packet | one Global.dToP[d] implies d->p in Global.dToP }
+	{p:Packet | one Global.dToP[d] implies d->p in Global.dToP}
 }
 
-pred NetState.rdt_send[d: Date, s: NetState] {
-	this.next = s	
+pred NetState.rdt_send[d: Data, s: NetState] {
 	this.packet = this.make_pkt[d]
 	not d in this.senderBuffer
+	this.udt_send[this.packet, s]
 }
 
-pred NetState.udt_Send[d: Data, s: NetState] {
-	this.rdt_send[d, s]
-	s.rdt_receive[this.packet, this]
+pred NetState.udt_send[p: Packet, s: NetState] {
+	this.packet = p
+	s.packet = p
 }
 
 pred NetState.rdt_receive[p: Packet, s: NetState] {
-	s.next = this
 	this.packet = p
-	Global.dToP.p in this.receiverBuffer
+	one d: Data | this.deliver_data[d] and (d = this.extract[p])
 }
 
 fun NetState.extract[p: Packet]: Data {
-
+	{d: Data | one Global.dToP.p implies d->p in Global.dToP}
 }
 
 pred NetState.deliver_data[d: Data] {
-
+	d in this.receiverBuffer
 }
-
 
 pred NetState.End[] {
 	all d: Data | d in this.receiverBuffer
@@ -65,8 +66,9 @@ run End for exactly 1 NetState, exactly 10 Data, 10 Packet
 
 pred Trace[] {
 	first.Init
-	all s: NetState - last | let s' = s.next | 
-		(Transition[s,s'] and s.End[]) or (Progress[s, s'])
+	last.End
+	all s: NetState - last | let s' = s.next |
+	(one d: s.senderBuffer | s.rdt_send[d, s']) and (s'.rdt_receive[s.packet, s])
 }
 
-run Trace
+run Trace for 3  NetState, exactly 1 Data, exactly 1 Packet
