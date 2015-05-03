@@ -37,7 +37,7 @@ pred NetState.rdt_send[d: Date, s: NetState] {
 	not d in this.senderBuffer
 }
 
-pred NetState.udt_oSend[d: Data, s: NetState] {
+pred NetState.udt_Send[d: Data, s: NetState] {
 	this.rdt_send[d, s]
 	s.rdt_receive[this.packet, this]
 }
