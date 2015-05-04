@@ -80,7 +80,12 @@ pred Trace[] {
 	first.Init
 	last.End
 	all s: NetState - last | let s' = s.next |
-		not Skip[s,s'] and (one d: Data | s.rdt_send[d, s']) or s'.rdt_receive[s.packet, s]
+		not Skip[s,s'] and 
+		(one d: Data | s.rdt_send[d, s']) or s'.rdt_receive[s.packet, s]
 }
+run Trace for 7 NetState, exactly 3 Data, exactly 3 Packet
 
-run Trace for 5 NetState, exactly 2 Data, exactly 2 Packet
+assert AlwaysPossibleToTransmitAllData {
+	all d: Data | d in first.senderBuffer and d in last.receiverBuffer
+}
+check AlwaysPossibleToTransmitAllData for 8 expect 0
