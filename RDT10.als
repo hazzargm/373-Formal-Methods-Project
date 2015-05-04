@@ -91,6 +91,6 @@ assert AlwaysPossibleToTransmitAllData {
 		last.End and
 		all d: Data | d in first.senderBuffer and d in last.receiverBuffer and
 		all s: NetState | Data = s.senderBuffer + s.receiverBuffer + s.extract[s.packet] and
-		some s:NetState | Data = s.receiverBuffer
+		some s:NetState | Data = s.receiverBuffer and not Data in s.senderBuffer
 }
 check AlwaysPossibleToTransmitAllData for exactly 7 NetState, 3 Data, 3 Packet expect 0
