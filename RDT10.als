@@ -93,4 +93,4 @@ assert AlwaysPossibleToTransmitAllData {
 		all s: NetState | Data = s.senderBuffer + s.receiverBuffer + s.extract[s.packet] and
 		some s:NetState | Data = s.receiverBuffer and not Data in s.senderBuffer
 }
-check AlwaysPossibleToTransmitAllData for exactly 7 NetState, 3 Data, 3 Packet expect 0
+check AlwaysPossibleToTransmitAllData for 7 but 15 NetState expect 0
