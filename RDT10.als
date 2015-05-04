@@ -86,7 +86,10 @@ pred Trace[] {
 run Trace for 7 NetState, exactly 3 Data, exactly 3 Packet
 
 assert AlwaysPossibleToTransmitAllData {
+/*	first.Init and last.End
 	all d: Data | d in first.senderBuffer and d in last.receiverBuffer
 	all s: NetState | Data = s.senderBuffer + s.receiverBuffer + s.extract[s.packet]
+*/
+	Trace => some s:NetState | Data = s.receiverBuffer
 }
-check AlwaysPossibleToTransmitAllData for exactly 7 NetState, 3 Data, 3 Packet
+check AlwaysPossibleToTransmitAllData for exactly 7 NetState, 3 Data, 3 Packet expect 0
