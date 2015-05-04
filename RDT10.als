@@ -28,8 +28,8 @@ pred NetState.Init[] {
 run Init for exactly 1 NetState, exactly 4 Data, 4 Packet
 
 pred NetState.End[] {
+	no d:Data | d in this.senderBuffer	
 	all d: Data | d in this.receiverBuffer
-	no d:Data | d in this.senderBuffer
 	no this.packet
 }
 run End for exactly 1 NetState, exactly 4 Data, 4 Packet
@@ -50,8 +50,10 @@ fun NetState.extract[p: Packet]: Data {
 
 /** Preds **/
 pred NetState.rdt_send[d: Data, s: NetState] {
-	not (d in this.senderBuffer or d in s.senderBuffer)
-	one p: Packet | p = this.make_pkt[d] and this.udt_send[p]
+	d in this.senderBuffer
+	s.senderBuffer = this.senderBuffer - d
+	s.receiverBuffer = this.receiverBuffer
+	one p: Packet | p = this.make_pkt[d] and s.udt_send[p]
 }
 
 pred NetState.udt_send[p: Packet] {
@@ -59,20 +61,25 @@ pred NetState.udt_send[p: Packet] {
 }
 
 pred NetState.rdt_receive[p: Packet, s: NetState] {
-	one d: Data | d = this.extract[p] and this.deliver_data[d]  
-	s.packet = p
+	one d: Data | d = this.extract[p] and this.deliver_data[d] and this.receiverBuffer = s.receiverBuffer + d
+	s.senderBuffer = this.senderBuffer
 }
 
 pred NetState.deliver_data[d: Data] {
 	d in this.receiverBuffer
 }
 
+pred Skip[s,s': NetState] {
+	s.receiverBuffer = s'.receiverBuffer
+	s.senderBuffer = s'.senderBuffer
+	s.packet = s'.packet
+}
 
 pred Trace[] {
 	first.Init
-//	last.End
+	last.End
 	all s: NetState - last | let s' = s.next |
-		(one d: Data | s.rdt_send[d, s']) //or s'.rdt_receive[s.packet, s]
+		not Skip[s,s'] and (one d: Data | s.rdt_send[d, s']) or s'.rdt_receive[s.packet, s]
 }
 
-run Trace for 4 NetState, exactly 4 Data, exactly 4 Packet
+run Trace for 9 NetState, exactly 4 Data, exactly 4 Packet
