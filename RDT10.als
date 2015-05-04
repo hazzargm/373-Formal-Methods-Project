@@ -61,6 +61,7 @@ pred NetState.udt_send[p: Packet] {
 }
 
 pred NetState.rdt_receive[p: Packet, s: NetState] {
+	no this.packet
 	one d: Data | d = this.extract[p] and this.deliver_data[d] and this.receiverBuffer = s.receiverBuffer + d
 	s.senderBuffer = this.senderBuffer
 }
@@ -82,4 +83,4 @@ pred Trace[] {
 		not Skip[s,s'] and (one d: Data | s.rdt_send[d, s']) or s'.rdt_receive[s.packet, s]
 }
 
-run Trace for 9 NetState, exactly 4 Data, exactly 4 Packet
+run Trace for 5 NetState, exactly 2 Data, exactly 2 Packet
