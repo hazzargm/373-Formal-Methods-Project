@@ -87,8 +87,6 @@ run Trace for 7 NetState, exactly 3 Data, exactly 3 Packet
 
 assert AlwaysPossibleToTransmitAllData {
 	Trace => 
-		first.Init and
-		last.End and
 		all d: Data | d in first.senderBuffer and d in last.receiverBuffer and
 		all s: NetState | Data = s.senderBuffer + s.receiverBuffer + s.extract[s.packet] and
 		some s:NetState | Data = s.receiverBuffer and not Data in s.senderBuffer
