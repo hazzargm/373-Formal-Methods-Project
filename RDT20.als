@@ -1,38 +1,52 @@
 module RDT20
 /*
-	CSSE 373 - Sprint 1: Checking RDT 1.0
+	CSSE 373 - Sprint 2: Checking RDT 2.0
 	Team: Moore Hazzard
 	Members: Gordon Hazzard & Jordan Moore
 */
 open util/ordering[NetState]
 
-sig Data {}
-sig Packet{}
+sig Data {
+	checkSum: lone Checksum
+}
+sig Packet{
+	checksum: lone Checksum
+}
+sig Checksum{}
 
 one sig Global {
-	dToP: Data one -> one Packet
+	dToP: Data one -> one Packet,
+//	dToC: Data one -> one Checksum,
+//	pToC: Packet one -> one Checksum
 }
 
 abstract sig NetState {
 	senderBuffer: set Data,
 	receiverBuffer: set Data,
-	packet: lone Packet
+	packet: lone Packet,
+	reply: lone Reply
 }
+
+abstract sig Reply{}
+one sig Ack extends Reply{}
+one sig Nak extends Reply{}
 
 /** Start & End States **/
 pred NetState.Init[] {
 	all d: Data | d in this.senderBuffer
 	no d:Data | d in this.receiverBuffer
 	no this.packet
+	no this.reply
 }
-run Init for exactly 1 NetState, exactly 4 Data, 4 Packet
+run Init for exactly 1 NetState,  exactly 4 Data,  exactly 4 Packet, exactly 2 Checksum
 
 pred NetState.End[] {
 	no d:Data | d in this.senderBuffer	
 	all d: Data | d in this.receiverBuffer
 	no this.packet
+	no this.reply
 }
-run End for exactly 1 NetState, exactly 4 Data, 4 Packet
+run End for exactly 1 NetState, exactly 4 Data, exactly 4 Packet
 
 /** Facts **/
 fact DataInOnlyOneBuffer{
@@ -40,8 +54,8 @@ fact DataInOnlyOneBuffer{
 }
 
 /** Functions **/
-fun NetState.make_pkt[d: Data]: Packet {
-	{p:Packet | one Global.dToP[d] implies d->p in Global.dToP}
+fun NetState.make_pkt[d: Data, c: Checksum]: Packet {
+	{p:Packet | one Global.dToP[d] implies (d->p in Global.dToP)}// and (p -> c in Global.pToC)}
 }
 
 fun NetState.extract[p: Packet]: Data {
@@ -51,9 +65,10 @@ fun NetState.extract[p: Packet]: Data {
 /** Preds **/
 pred NetState.rdt_send[d: Data, s: NetState] {
 	d in this.senderBuffer
-	s.senderBuffer = this.senderBuffer - d
+	s.senderBuffer = this.senderBuffer
 	s.receiverBuffer = this.receiverBuffer
-	one p: Packet | p = this.make_pkt[d] and s.udt_send[p]
+	one p: Packet | one c: Checksum | p = this.make_pkt[d, c] and s.udt_send[p]
+	no this.reply
 }
 
 pred NetState.udt_send[p: Packet] {
@@ -70,6 +85,7 @@ pred NetState.deliver_data[d: Data] {
 	d in this.receiverBuffer
 }
 
+/**Checking the Properties**/
 pred Skip[s,s': NetState] {
 	s.receiverBuffer = s'.receiverBuffer
 	s.senderBuffer = s'.senderBuffer
