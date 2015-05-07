@@ -10,15 +10,26 @@ sig Data {
 	checkSum: lone Checksum
 }
 sig Packet{
-	checksum: lone Checksum
+	d: Data,
+	c: Checksum
 }
 sig Checksum{}
 
 one sig Global {
 	dToP: Data one -> one Packet,
-//	dToC: Data one -> one Checksum,
-//	pToC: Packet one -> one Checksum
+	dToC: Data one -> one Checksum
 }
+
+/*
+
+Need error predicate that generates error
+one trace where there is an error, and one trace where there isn't an error
+
+
+
+
+*/
+
 
 abstract sig NetState {
 	senderBuffer: set Data,
