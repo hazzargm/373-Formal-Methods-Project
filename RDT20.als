@@ -70,30 +70,60 @@ pred Packet.IsCorrupt[] {
 }
 
 /** Preds **/
-pred NetState.rdt_send[d: Data, s: NetState] {
+
+pred NetState.rdt_send[d: Data, s: NetState] { // this = State A(sending), s = State B (receiving)
 	d in this.senderBuffer
 	s.senderBuffer = this.senderBuffer
-//	s.receiverBuffer = this.receiverBuffer
-	one p: Packet | one c: Checksum | p = this.make_pkt[d, c]
+	one p: Packet | one c: Checksum | (p = this.make_pkt[d, c]) and this.udt_send[p]
 	no this.reply
 }
+run rdt_send for exactly 2 NetState,  exactly 2 Data,  exactly 2 Packet, exactly 2 Checksum
 
 pred NetState.udt_send[p: Packet] {
 	this.packet = p
 }
 
-pred NetState.rdt_receive[p: Packet, s: NetState] {
+pred NetState.rdt_receive[p: Packet, s, s': NetState] {  // s = State A(sending), this = State B(receiving/acknowledging), s' = State C(sending)
 	no this.packet
-	p.IsCorrupt => (this.reply = Nak and this.receiverBuffer = s.receiverBuffer and this.senderBuffer = s.senderBuffer)
-	else (this.reply = Ack and (one d: Data | d = this.extract[p] and
-																	  this.deliver_data[d] and
-																	  (this.receiverBuffer = s.receiverBuffer + d) and
-																	  this.senderBuffer = s.senderBuffer - d))
+	no s.reply
+	no s'.reply
+	s.packet = p
+	this.senderBuffer= s.senderBuffer
+	this.receiverBuffer = s'.receiverBuffer
+	p.IsCorrupt => ((this.reply = Nak) and
+							  (this.receiverBuffer = s.receiverBuffer) and
+							  (this.senderBuffer = s'.senderBuffer) and
+							  (s.packet = s'.packet))
+	else (this.reply = Ack and (one d: Data | ((d = this.extract[p]) and
+																		(this.deliver_data[d]) and
+																	    (s'.receiverBuffer = s.receiverBuffer + d) and
+																	    (s'.senderBuffer = s.senderBuffer - d))))
 }
+run rdt_receive for exactly 3 NetState, exactly 1 Data, exactly 1 Packet, exactly 1 Checksum
 
 pred NetState.deliver_data[d: Data] {
 	d in this.receiverBuffer
 }
+
+/* Don't think this is the way we want to go about this
+pred NetState.acknowledge[s, s':NetState] {
+	no this.packet
+	no s.reply
+	no s'.reply
+	this.senderBuffer = s'.senderBuffer
+	this.receiverBuffer = s'.receiverBuffer
+	(this.reply = Ack) => ((some d: s.senderBuffer | ((d = s.extract[s.packet]) and
+																				 (d in this.receiverBuffer) and 
+																			     (this.senderBuffer = s.senderBuffer - d))) and
+										 (some s'': NetState - (this + s + s') | some d: s'.senderBuffer | s'.rdt_send[d, s'']))
+	(this.reply = Nak) => ((this.senderBuffer = s.senderBuffer) and
+										 (this.receiverBuffer = s.receiverBuffer) and
+										 (s.senderBuffer = s'.senderBuffer) and
+										 (s.receiverBuffer = s'.receiverBuffer) and
+										 (some s'': NetState - (this + s + s') | s = s'' and s'.rdt_send[s.extract[s.packet], s'']))
+}
+run acknowledge for exactly 4 NetState, exactly 1 Data, exactly 1 Packet, exactly 1 Checksum
+*/
 
 /**Checking the Properties**/
 pred Skip[s,s': NetState] {
@@ -106,12 +136,12 @@ pred Skip[s,s': NetState] {
 pred SuccessTrace[] {
 	first.Init
 	last.End
-	all s: NetState - last| let s' = s.next |
-		not Skip[s,s'] and not s.reply = Nak and
-		(one d: Data | s.rdt_send[d, s']) or s'.rdt_receive[s.packet, s]
+	all s: NetState - (last + first + last.prev)| let s' = s.next | //removed last.prev because of the s'.next in the receive function
+		not Skip[s,s'] and
+		((one d: Data | s.rdt_send[d, s']) or (s'.rdt_receive[s.packet, s, s'.next]))
 }
 run SuccessTrace for 6 NetState, exactly 2 Data, exactly 2 Packet, exactly 2 Checksum
-/**
+/*
 assert AlwaysPossibleToTransmitAllData {
 	Trace => 
 		all d: Data | d in first.senderBuffer and d in last.receiverBuffer and
@@ -119,4 +149,4 @@ assert AlwaysPossibleToTransmitAllData {
 		some s:NetState | Data = s.receiverBuffer and not Data in s.senderBuffer
 }
 check AlwaysPossibleToTransmitAllData for 7 but 15 NetState expect 0
-**/
+*/
