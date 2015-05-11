@@ -107,6 +107,8 @@ run recv_send_verify for exactly 3 NetState, exactly 2 Data, exactly 2 Packet, e
 pred send_verify_recv[s, s', s'': NetState] {
 	send_verify[s, s']
 	verify_recv[s', s'']
+	(s'.reply = Ack) => (one d: s.senderBuffer | (d = extract[s.packet] and (d in s''.receiverBuffer))) else 
+	(s'.reply = Nak and s.senderBuffer = s''.senderBuffer and s.receiverBuffer = s''.receiverBuffer)
 }
 run send_verify_recv for exactly 3 NetState, exactly 2 Data, exactly 2 Packet, exactly 2 Checksum
 
@@ -151,13 +153,13 @@ pred NakTrace[] { //press 'next' to look at the second instance
 }
 run NakTrace for exactly 7 NetState, exactly 2 Data, exactly 2 Packet, exactly 2 Checksum
 
-/*
+
 assert AlwaysPossibleToTransmitAllData {
-	Trace => (
+	(SuccessTrace or NakTrace) => (
 		all d: Data | d in first.senderBuffer and d in last.receiverBuffer and
-		all s: NetState | Data = s.senderBuffer + s.receiverBuffer + s.extract[s.packet] and
+		all s: NetState | Data = s.senderBuffer + s.receiverBuffer + extract[s.packet] and
 		some s:NetState | Data = s.receiverBuffer and not Data in s.senderBuffer
 		)
 }
-check AlwaysPossibleToTransmitAllData for 7 but 15 NetState expect 0
-*/
+check AlwaysPossibleToTransmitAllData for 2 but 7 NetState
+
