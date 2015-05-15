@@ -1,4 +1,4 @@
-module RDT20
+module RDT21
 /*
 	CSSE 373 - Sprint 2: Checking RDT 2.0
 	Team: Moore Hazzard
@@ -8,13 +8,15 @@ open util/ordering[NetState]
 
 sig Data {}
 sig Packet{
-	c: Checksum
+	seq_num: one Seq_Num,
+	c: one Checksum
 }
 sig Checksum{}
 
 one sig Global {
 	pToD: Packet one -> one Data,
-	dToC: Data one -> one Checksum
+	dToC: Data one -> one Checksum,
+	pToS: Packet one -> one Seq_Num
 }
 
 /*
@@ -26,11 +28,16 @@ abstract sig NetState {
 	senderBuffer: set Data,
 	receiverBuffer: set Data,
 	packet: lone Packet,
-	reply: lone Reply
+	reply: lone Reply,
 }
 
-abstract sig Reply{}
+abstract sig Reply{
+	seq_num: Seq_Num
+}
 one sig Ack, Nak extends Reply{}
+
+abstract sig Seq_Num{}
+one sig One, Zero extends Seq_Num{}
 
 /** Start & End States **/
 pred NetState.Init[] {
