@@ -115,8 +115,8 @@ run send_verify_recv for exactly 3 NetState, exactly 2 Data, exactly 2 Packet, e
 pred verify_recv_send[s, s', s'': NetState] {
 	verify_recv[s, s']
 	recv_send[s',s'']
-	(s.reply = Ack) => (not (s.packet = s'.packet)) else
-	((s.reply = Nak) and (s.packet = s'.packet))
+	(s.reply = Ack) => (not (s.packet = s''.packet)) else
+	((s.reply = Nak) and (s.packet = s''.packet))
 }
 run verify_recv_send for exactly 3 NetState, exactly 2 Data, exactly 2 Packet, exactly 2 Checksum
 
