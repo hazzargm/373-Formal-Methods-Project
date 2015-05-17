@@ -149,7 +149,7 @@ run verify_recv_send for exactly 3 NetState, exactly 2 Data, exactly 2 Packet, e
 pred verify_recv_send_bad[s, s', s'': NetState] {
 	verify_recv[s, s']
 	recv_send[s',s'']
-	(s.reply in Ack) => ((not (s.packet = s''.packet))) else
+	(s.reply in Ack) => (((s.packet = s''.packet))) else
 	((s.reply in Nak) and (s.packet = s''.packet))
 }
 run verify_recv_send_bad for exactly 3 NetState, exactly 2 Data, exactly 2 Packet, exactly 2 Checksum
@@ -173,10 +173,10 @@ pred SuccessTrace[] { //look at first instance
 				(verify_recv_send[s, s', s''])))
 }
 //run SuccessTrace for exactly 4 NetState, exactly 1 Data, exactly 1 Packet, exactly 1 Checksum
-run SuccessTrace for exactly 7 NetState, exactly 2 Data, exactly 2 Packet, exactly 2 Checksum
-//run SuccessTrace for exactly 10 NetState, exactly 3 Data, exactly 3 Packet, exactly 3 Checksum
+//run SuccessTrace for exactly 7 NetState, exactly 2 Data, exactly 2 Packet, exactly 2 Checksum
+run SuccessTrace for exactly 10 NetState, exactly 3 Data, exactly 3 Packet, exactly 3 Checksum
 
-pred NakTrace[] { //press 'next' to look at the second instance
+pred NakTrace[] {
 	first.Init
 	not last.End
 	all s: NetState - (last + last.prev) |
