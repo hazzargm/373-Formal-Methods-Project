@@ -26,13 +26,12 @@ abstract sig NetState {
 }
 
 abstract sig Reply{}
-abstract sig Ack extends Reply{}
-abstract sig Nak extends Reply{}
-one sig Ack_0, Ack_1 extends Ack{}
-one sig Nak_0, Nak_1 extends Nak{}
+abstract sig Ack, Nak extends Reply{}
+one sig Ack0, Ack1 extends Ack{}
+one sig Nak0, Nak1 extends Nak{}
 
 abstract sig Seq_Num{}
-one sig One, Zero extends Seq_Num{}
+one sig Seq0, Seq1 extends Seq_Num{}
 
 /** Start & End States **/
 pred NetState.Init[] {
@@ -40,7 +39,7 @@ pred NetState.Init[] {
 	no this.packet
 	no this.reply
 }
-run Init for exactly 1 NetState,  exactly 2 Data,  exactly 2 Packet, exactly 2 Checksum
+run Init for exactly 5 NetState,  exactly 2 Data,  exactly 2 Packet, exactly 2 Checksum
 
 pred NetState.End[] {
 	all d: Data | not d in this.senderBuffer and d in this.receiverBuffer  
@@ -70,15 +69,16 @@ pred Packet.IsCorrupt[] {
 
 pred seq_match[s, s': NetState] {
 	(one n: Seq_Num | ((s.packet).seq_num = n) and ((s'.packet).seq_num = n) and 
-		((n = Zero and s'.reply in Ack) => s'.reply = Ack_0) and
-		((n = Zero and s'.reply in Nak) => s'.reply = Nak_0) and
-		((n = One and s'.reply in Ack) => s'.reply = Ack_1) and
-		((n = One and s'.reply in Nak) => s'.reply = Nak_1))
+		(n = Seq0 and s'.reply in Ack) => s'.reply = Ack0 else
+		(n = Seq0 and s'.reply in Nak) => s'.reply = Nak0 else
+		(n = Seq1 and s'.reply in Ack) => s'.reply = Ack1 else
+		(n = Seq1 and s'.reply in Nak) => s'.reply = Nak1
+	)
 }
 
 pred seq_adv[s, s': NetState] {
-	((s.packet).seq_num = One) => ((s.reply = Ack_1 or s.reply = Nak_1) and ((s'.packet).seq_num = Zero)) else
-	(((s.packet).seq_num = Zero) and (s.reply = Ack_0 or s.reply = Nak_0) and ((s'.packet).seq_num = One))
+	((s.packet).seq_num = Seq1) => ((s.reply = Ack1 or s.reply = Nak1) and ((s'.packet).seq_num = Seq0)) else
+	(((s.packet).seq_num = Seq0) => (s.reply = Ack0 or s.reply = Nak0) and ((s'.packet).seq_num = Seq1))
 }
 run seq_adv for exactly 3 NetState, exactly 2 Data, exactly 2 Packet, exactly 2 Checksum
 
@@ -88,8 +88,8 @@ pred recv_send[s, s': NetState] {
 	s.senderBuffer = s'.senderBuffer
 	s.receiverBuffer = s'.receiverBuffer
 	some d: Data |
-							((d in s.senderBuffer) and (d in s'.senderBuffer) and
-							  (one p: Packet | one c: Checksum | (s'.packet = p  and s'.packet = make_pkt[d,c])))
+		((d in s.senderBuffer) and (d in s'.senderBuffer) and
+		(one p: Packet | one c: Checksum | (s'.packet = p  and s'.packet = make_pkt[d,c])))
 }
 run recv_send for exactly 2 NetState, exactly 1 Data,  exactly 1 Packet, exactly 1 Checksum
 
@@ -107,8 +107,13 @@ pred verify_recv[s, s': NetState] {
 	no s'.packet
 	no s'.reply
 	one p: Packet | (s.packet = p and (one d: s.senderBuffer | d = extract[p]))
-	(s.reply in Ack) => (one d: Data | ((s'.senderBuffer = s.senderBuffer - d) and (s'.receiverBuffer = s.receiverBuffer + d))) else 
-	((s.reply in Nak) and	(s'.senderBuffer = s.senderBuffer and s'.receiverBuffer = s.receiverBuffer))
+	(((s.packet).seq_num = Seq0 and s.reply = Ack0) or 
+		((s.packet).seq_num = Seq1 and s.reply = Ack1)) => 
+			(one d: Data | ((s'.senderBuffer = s.senderBuffer - d) and (s'.receiverBuffer = s.receiverBuffer + d))) 
+	else  (s.reply in Ack) => 
+		(s'.senderBuffer = s.senderBuffer and s'.receiverBuffer = s.receiverBuffer) 
+	else 
+		((s.reply in Nak) and (s'.senderBuffer = s.senderBuffer and s'.receiverBuffer = s.receiverBuffer))
 }
 run verify_recv for exactly 2 NetState, exactly 1 Data,  exactly 1 Packet, exactly 1 Checksum
 
@@ -116,16 +121,19 @@ run verify_recv for exactly 2 NetState, exactly 1 Data,  exactly 1 Packet, exact
 pred recv_send_verify[s, s', s'': NetState] {
 	recv_send[s, s']
 	send_verify[s', s'']
-	seq_match[s',s'']
+//	seq_match[s',s'']
 }
 run recv_send_verify for exactly 3 NetState, exactly 2 Data, exactly 2 Packet, exactly 2 Checksum
 
 pred send_verify_recv[s, s', s'': NetState] {
 	send_verify[s, s']
 	verify_recv[s', s'']
-	seq_match[s, s']
-	(s'.reply in Ack) => (one d: s.senderBuffer | (d = extract[s.packet] and (d in s''.receiverBuffer))) else 
-	(s'.reply in Nak and s.senderBuffer = s''.senderBuffer and s.receiverBuffer = s''.receiverBuffer)
+//	seq_match[s, s']
+	(((s'.packet).seq_num = Seq0 and s'.reply = Ack0) or 
+		((s'.packet).seq_num = Seq1 and s'.reply = Ack1)) => 
+			(one d: s.senderBuffer | (d = extract[s.packet] and (d in s''.receiverBuffer))) 
+	else 
+		(s'.reply in Ack or s'.reply in Nak) => (s.senderBuffer = s''.senderBuffer and s.receiverBuffer = s''.receiverBuffer)
 }
 run send_verify_recv for exactly 3 NetState, exactly 2 Data, exactly 2 Packet, exactly 2 Checksum
 
@@ -138,6 +146,13 @@ pred verify_recv_send[s, s', s'': NetState] {
 }
 run verify_recv_send for exactly 3 NetState, exactly 2 Data, exactly 2 Packet, exactly 2 Checksum
 
+pred verify_recv_send_bad[s, s', s'': NetState] {
+	verify_recv[s, s']
+	recv_send[s',s'']
+	(s.reply in Ack) => ((not (s.packet = s''.packet))) else
+	((s.reply in Nak) and (s.packet = s''.packet))
+}
+run verify_recv_send_bad for exactly 3 NetState, exactly 2 Data, exactly 2 Packet, exactly 2 Checksum
 
 /**Checking the Properties**/
 pred Skip[s,s': NetState] {
@@ -158,8 +173,8 @@ pred SuccessTrace[] { //look at first instance
 				(verify_recv_send[s, s', s''])))
 }
 //run SuccessTrace for exactly 4 NetState, exactly 1 Data, exactly 1 Packet, exactly 1 Checksum
-//run SuccessTrace for exactly 7 NetState, exactly 2 Data, exactly 2 Packet, exactly 2 Checksum
-run SuccessTrace for exactly 10 NetState, exactly 3 Data, exactly 3 Packet, exactly 3 Checksum
+run SuccessTrace for exactly 7 NetState, exactly 2 Data, exactly 2 Packet, exactly 2 Checksum
+//run SuccessTrace for exactly 10 NetState, exactly 3 Data, exactly 3 Packet, exactly 3 Checksum
 
 pred NakTrace[] { //press 'next' to look at the second instance
 	first.Init
@@ -169,7 +184,7 @@ pred NakTrace[] { //press 'next' to look at the second instance
 			((not (Skip[s,s'] or Skip[s', s''] or Skip[s, s''])) and
 			  ((recv_send_verify[s, s', s'']) or 
 				(send_verify_recv[s, s', s'']) or
-				(verify_recv_send[s, s', s''])))
+				(verify_recv_send[s, s', s''] or verify_recv_send_bad[s, s', s''])))
 }
 run NakTrace for exactly 7 NetState, exactly 2 Data, exactly 2 Packet, exactly 2 Checksum
 
@@ -178,7 +193,7 @@ assert AlwaysPossibleToTransmitAllData {
 	(SuccessTrace or NakTrace) => (
 		all d: Data | d in first.senderBuffer and d in last.receiverBuffer and
 		all s: NetState | Data = s.senderBuffer + s.receiverBuffer + extract[s.packet] and
-		some s:NetState | Data = s.receiverBuffer and not Data in s.senderBuffer
+		some s:NetState | Data = s.receiverBuffer and no s.senderBuffer
 		)
 }
 check AlwaysPossibleToTransmitAllData for 2 but 7 NetState

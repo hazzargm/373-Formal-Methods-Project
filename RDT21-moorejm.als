@@ -107,7 +107,6 @@ pred verify_recv[s, s': NetState] {
 	no s'.packet
 	no s'.reply
 	one p: Packet | (s.packet = p and (one d: s.senderBuffer | d = extract[p]))
-//	(s.reply in Ack) => (one d: Data | ((s'.senderBuffer = s.senderBuffer - d) and (s'.receiverBuffer = s.receiverBuffer + d))) else 
 	(((s.packet).seq_num = Seq0 and s.reply = Ack0) or 
 		((s.packet).seq_num = Seq1 and s.reply = Ack1)) => 
 			(one d: Data | ((s'.senderBuffer = s.senderBuffer - d) and (s'.receiverBuffer = s.receiverBuffer + d))) 
